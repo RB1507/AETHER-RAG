@@ -1,0 +1,46 @@
+# ===== Secrets / env =====
+.env
+*.env
+!.env.example
+!.env.production
+backend/.env
+**/settings.env
+secret.key
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+backend/venv/
+backend/venv_pkg/
+
+# ===== Runtime data / generated artifacts =====
+backend/sql_app.db
+*.db
+backend/uploads/
+backend/vector_store/
+backend/model_cache/
+backend/logs/
+.rag_pids
+# BFF disk-persistence store (dev fallback)
+.data/
+frontend/.data/
+
+# ===== Build outputs =====
+backend/packaging/build/
+backend/packaging/dist/
+dist_installer/
+frontend/.next/
+frontend/out/
+
+# ===== Node =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== OS / editor =====
+.DS_Store
+Thumbs.db
+*.log

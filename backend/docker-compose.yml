@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: aetherrag-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql://raguser:ragpass@db:5432/ragdb
+      - REDIS_URL=redis://redis:6379/0
+      - LANCE_URI=/app/vector_store
+      - UPLOAD_DIR=/app/uploads
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+      - ./vector_store:/app/vector_store
+      - ./logs:/app/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  db:
+    image: postgres:15-alpine
+    container_name: aetherrag-db
+    restart: always
+    environment:
+      - POSTGRES_USER=raguser
+      - POSTGRES_PASSWORD=ragpass
+      - POSTGRES_DB=ragdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raguser -d ragdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: aetherrag-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:

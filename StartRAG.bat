@@ -1,0 +1,3 @@
+@echo off
+title AETHER RAG - Starting...
+powershell -ExecutionPolicy Bypass -File "%~dp0StartRAG.ps1"
