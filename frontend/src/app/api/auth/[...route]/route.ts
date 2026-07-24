@@ -155,6 +155,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   }
 
+  // 5. RESET PASSWORD ROUTE — local direct reset (no email link; the desktop
+  // app has no mail server, so the owner sets a new password directly).
+  if (path.endsWith('/api/auth/reset-password')) {
+    try {
+      const { email, password } = await request.json()
+      if (!email || !password) {
+        return NextResponse.json(
+          { message: 'Email and new password are required' },
+          { status: 400 }
+        )
+      }
+
+      const backendResponse = await fetch(`${BACKEND_URL}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, new_password: password }),
+      })
+
+      if (!backendResponse.ok) {
+        const errorData = await backendResponse.json().catch(() => ({}))
+        return NextResponse.json(
+          { message: errorData.detail || 'Password reset failed' },
+          { status: backendResponse.status }
+        )
+      }
+
+      return NextResponse.json({ success: true })
+    } catch (backendError) {
+      console.warn('Backend reset not available:', backendError)
+      return NextResponse.json(
+        { message: 'Password reset service unavailable. Ensure backend is running.' },
+        { status: 503 }
+      )
+    }
+  }
+
   return NextResponse.json({ message: 'Not Found' }, { status: 404 })
 }
 

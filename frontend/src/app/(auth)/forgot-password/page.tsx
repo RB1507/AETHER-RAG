@@ -7,7 +7,7 @@ import { forgotPasswordSchema, ForgotPasswordInput } from '@/lib/schemas/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Mail, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { Mail, Lock, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react'
 import { BrandMark } from '@/components/brand/BrandMark'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -18,6 +18,7 @@ import { ROUTES } from '@/constants/routes'
 export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = React.useState(false)
   const [isSuccess, setIsSuccess] = React.useState(false)
+  const [apiError, setApiError] = React.useState<string | null>(null)
 
   const {
     register,
@@ -27,15 +28,31 @@ export default function ForgotPasswordPage() {
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: {
       email: '',
+      password: '',
+      confirmPassword: '',
     },
   })
 
   const onSubmit = async (data: ForgotPasswordInput) => {
     setIsLoading(true)
-    // Simulate API request delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    setIsLoading(false)
-    setIsSuccess(true)
+    setApiError(null)
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: data.email, password: data.password }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setApiError(body.message || 'Password reset failed. Please try again.')
+        return
+      }
+      setIsSuccess(true)
+    } catch {
+      setApiError('Could not reach the server. Ensure the app backend is running.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -70,7 +87,7 @@ export default function ForgotPasswordPage() {
               <CardHeader className="space-y-1">
                 <CardTitle className="text-xl font-bold tracking-tight">Reset password</CardTitle>
                 <CardDescription className="text-xs">
-                  Enter your email address and we will send you a reset link.
+                  Enter your account email and choose a new password.
                 </CardDescription>
               </CardHeader>
 
@@ -102,6 +119,64 @@ export default function ForgotPasswordPage() {
                     )}
                   </div>
 
+                  {/* New Password Input */}
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="password"
+                      className="text-xs font-semibold text-text-secondary"
+                    >
+                      New Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-2.5 h-4.5 w-4.5 text-text-muted" />
+                      <Input
+                        id="password"
+                        type="password"
+                        placeholder="At least 6 characters"
+                        disabled={isLoading}
+                        className="pl-10 h-10 bg-transparent border-border focus-visible:ring-brand-primary"
+                        {...register('password')}
+                      />
+                    </div>
+                    {errors.password && (
+                      <p className="text-xs font-medium text-danger mt-1">
+                        {errors.password.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Confirm Password Input */}
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="confirmPassword"
+                      className="text-xs font-semibold text-text-secondary"
+                    >
+                      Confirm New Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-2.5 h-4.5 w-4.5 text-text-muted" />
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        placeholder="Re-enter your new password"
+                        disabled={isLoading}
+                        className="pl-10 h-10 bg-transparent border-border focus-visible:ring-brand-primary"
+                        {...register('confirmPassword')}
+                      />
+                    </div>
+                    {errors.confirmPassword && (
+                      <p className="text-xs font-medium text-danger mt-1">
+                        {errors.confirmPassword.message}
+                      </p>
+                    )}
+                  </div>
+
+                  {apiError && (
+                    <p className="text-xs font-medium text-danger text-center">
+                      {apiError}
+                    </p>
+                  )}
+
                   <Button
                     type="submit"
                     disabled={isLoading}
@@ -110,10 +185,10 @@ export default function ForgotPasswordPage() {
                     {isLoading ? (
                       <span className="flex items-center justify-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Sending reset link...
+                        Updating password...
                       </span>
                     ) : (
-                      'Send Reset Link'
+                      'Update Password'
                     )}
                   </Button>
                 </form>
@@ -135,9 +210,9 @@ export default function ForgotPasswordPage() {
                 <div className="h-12 w-12 text-success bg-green-500/10 rounded-full flex items-center justify-center mb-4">
                   <CheckCircle2 className="h-8 w-8" />
                 </div>
-                <h3 className="text-lg font-bold text-text-primary mb-2">Check your email</h3>
+                <h3 className="text-lg font-bold text-text-primary mb-2">Password updated</h3>
                 <p className="text-xs text-text-muted max-w-sm mb-6 leading-relaxed">
-                  We have sent a password reset link to your email address. Please check your inbox and spam folder.
+                  Your password has been changed. You can now sign in with your new password.
                 </p>
               </CardContent>
 

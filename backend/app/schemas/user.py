@@ -7,6 +7,9 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+class PasswordReset(UserBase):
+    new_password: str
+
 class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 

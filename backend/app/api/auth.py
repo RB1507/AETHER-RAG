@@ -20,6 +20,7 @@ from app.schemas.user import (
     Token,
     AccessToken,
     TokenRefreshRequest,
+    PasswordReset,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -46,6 +47,29 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> User:
     db.commit()
     db.refresh(new_user)
     return new_user
+
+@router.post("/reset-password", response_model=UserOut, dependencies=[Depends(login_rate_limit)])
+def reset_password(body: PasswordReset, db: Session = Depends(get_db)) -> User:
+    """
+    Resets a local account's password directly.
+
+    AETHER RAG is a single-machine desktop app with no mail server, so there
+    is no emailed reset link. Anyone with access to this machine already has
+    access to its data, so the account owner recovers access by supplying
+    their email and choosing a new password.
+    """
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with that email",
+        )
+
+    user.hashed_password = get_password_hash(body.new_password)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
 
 @router.post("/login", response_model=Token, dependencies=[Depends(login_rate_limit)])
 def login_for_access_token(
