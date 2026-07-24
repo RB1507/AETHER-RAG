@@ -2,6 +2,16 @@ import sys
 import os
 import traceback
 
+# This runner now lives in backend/tests/. Put both the backend root (for
+# `from app...`) and this tests/ dir (for the bare `__import__("test_...")`
+# calls below) on sys.path so it works regardless of the invocation cwd.
+_TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+_BACKEND_ROOT = os.path.dirname(_TESTS_DIR)
+for _p in (_BACKEND_ROOT, _TESTS_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+
 def main():
     print("==================================================")
     print("      RUNNING INTEGRATION VERIFICATION RUNNER     ")

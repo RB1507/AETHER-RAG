@@ -4,7 +4,8 @@
 # ============================================================
 
 $ErrorActionPreference = "Stop"
-$ROOT       = Split-Path -Parent $MyInvocation.MyCommand.Definition
+# Script lives in scripts/; project root is its parent.
+$ROOT       = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Definition)
 $BACKEND    = Join-Path $ROOT "backend"
 $FRONTEND   = Join-Path $ROOT "frontend"
 $VENV_PY    = Join-Path $BACKEND "venv\Scripts\python.exe"

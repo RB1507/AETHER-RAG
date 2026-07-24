@@ -2,7 +2,8 @@
 #  AETHER RAG - Stop All Services
 # ============================================================
 
-$ROOT     = Split-Path -Parent $MyInvocation.MyCommand.Definition
+# Script lives in scripts/; project root is its parent.
+$ROOT     = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Definition)
 $PID_FILE = Join-Path $ROOT ".rag_pids"
 
 Write-Host ""
