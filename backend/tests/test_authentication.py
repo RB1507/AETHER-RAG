@@ -31,7 +31,9 @@ def run_auth_test():
 
     # 2. Register user -> Expect 201
     print("\n[Test 2] Registering a new test user...")
-    reg_payload = {"email": email, "password": pwd}
+    reg_payload = {"email": email, "password": pwd,
+                   "security_question": "What was the name of your first pet?",
+                   "security_answer": "rex"}
     response_reg = client.post("/api/auth/register", json=reg_payload)
     print("Registration Status Code (Expected 201):", response_reg.status_code)
     print("Registration Response Body:", response_reg.json())

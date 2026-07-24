@@ -8,13 +8,14 @@ import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Eye, EyeOff, Lock, Mail, User, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Lock, Mail, User, Loader2, ShieldQuestion } from 'lucide-react'
 import { BrandMark } from '@/components/brand/BrandMark'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { slideUp } from '@/lib/animations'
 import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { ROUTES } from '@/constants/routes'
+import { SECURITY_QUESTIONS } from '@/constants/security-questions'
 
 export default function SignupPage() {
   const { signup, isSigningUp } = useAuth()
@@ -32,6 +33,8 @@ export default function SignupPage() {
       email: '',
       password: '',
       confirmPassword: '',
+      securityQuestion: '',
+      securityAnswer: '',
     },
   })
 
@@ -42,6 +45,8 @@ export default function SignupPage() {
         name: data.name,
         email: data.email,
         password: data.password,
+        securityQuestion: data.securityQuestion,
+        securityAnswer: data.securityAnswer,
       })
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Something went wrong during signup.')
@@ -199,6 +204,66 @@ export default function SignupPage() {
                 {errors.confirmPassword && (
                   <p className="text-xs font-medium text-danger mt-1">
                     {errors.confirmPassword.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Security Question (used for offline password recovery) */}
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="securityQuestion"
+                  className="text-xs font-semibold text-text-secondary"
+                >
+                  Security Question
+                </label>
+                <div className="relative">
+                  <ShieldQuestion className="absolute left-3 top-2.5 h-4.5 w-4.5 text-text-muted pointer-events-none" />
+                  <select
+                    id="securityQuestion"
+                    disabled={isSigningUp}
+                    defaultValue=""
+                    className="w-full pl-10 h-10 rounded-md bg-transparent border border-border text-sm text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary disabled:opacity-50"
+                    {...register('securityQuestion')}
+                  >
+                    <option value="" disabled>
+                      Choose a question…
+                    </option>
+                    {SECURITY_QUESTIONS.map((q) => (
+                      <option key={q} value={q}>
+                        {q}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {errors.securityQuestion && (
+                  <p className="text-xs font-medium text-danger mt-1">
+                    {errors.securityQuestion.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Security Answer */}
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="securityAnswer"
+                  className="text-xs font-semibold text-text-secondary"
+                >
+                  Your Answer
+                </label>
+                <div className="relative">
+                  <ShieldQuestion className="absolute left-3 top-2.5 h-4.5 w-4.5 text-text-muted" />
+                  <Input
+                    id="securityAnswer"
+                    type="text"
+                    placeholder="Remember this — you'll need it to reset your password"
+                    disabled={isSigningUp}
+                    className="pl-10 h-10 bg-transparent border-border focus-visible:ring-brand-primary"
+                    {...register('securityAnswer')}
+                  />
+                </div>
+                {errors.securityAnswer && (
+                  <p className="text-xs font-medium text-danger mt-1">
+                    {errors.securityAnswer.message}
                   </p>
                 )}
               </div>

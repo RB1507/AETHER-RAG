@@ -21,9 +21,16 @@ from app.schemas.user import (
     AccessToken,
     TokenRefreshRequest,
     PasswordReset,
+    SecurityQuestionOut,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+
+def _normalize_answer(answer: str) -> str:
+    """Security answers are matched case-insensitively and whitespace-trimmed
+    so the user isn't tripped up by capitalization or a trailing space."""
+    return answer.strip().lower()
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> User:
@@ -41,28 +48,56 @@ def register_user(user_in: UserCreate, db: Session = Depends(get_db)) -> User:
     new_user = User(
         email=user_in.email,
         hashed_password=hashed_pwd,
-        is_active=True
+        is_active=True,
+        security_question=user_in.security_question,
+        security_answer_hash=get_password_hash(_normalize_answer(user_in.security_answer)),
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     return new_user
 
+@router.get("/security-question", response_model=SecurityQuestionOut)
+def get_security_question(email: str, db: Session = Depends(get_db)) -> dict:
+    """
+    Returns the security question for an account so the reset flow can
+    challenge the user. 404 if no such account; ``security_question`` is null
+    for legacy accounts created before this feature (they can't self-reset).
+    """
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with that email",
+        )
+    return {"security_question": user.security_question}
+
+
 @router.post("/reset-password", response_model=UserOut, dependencies=[Depends(login_rate_limit)])
 def reset_password(body: PasswordReset, db: Session = Depends(get_db)) -> User:
     """
-    Resets a local account's password directly.
-
-    AETHER RAG is a single-machine desktop app with no mail server, so there
-    is no emailed reset link. Anyone with access to this machine already has
-    access to its data, so the account owner recovers access by supplying
-    their email and choosing a new password.
+    Resets a local account's password after the owner answers their own
+    security question. AETHER RAG is a single-machine desktop app with no mail
+    server, so identity is proven by the pre-set security answer rather than an
+    emailed reset link. This stops one local account from taking over another.
     """
     user = db.query(User).filter(User.email == body.email).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No account found with that email",
+        )
+
+    if not user.security_answer_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account has no security question set, so it can't be reset here.",
+        )
+
+    if not verify_password(_normalize_answer(body.security_answer), user.security_answer_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect answer to the security question",
         )
 
     user.hashed_password = get_password_hash(body.new_password)

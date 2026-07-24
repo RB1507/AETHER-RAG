@@ -30,6 +30,12 @@ export const signupSchema = z
     confirmPassword: z
       .string()
       .min(1, { message: 'Please confirm your password' }),
+    securityQuestion: z
+      .string()
+      .min(1, { message: 'Please choose a security question' }),
+    securityAnswer: z
+      .string()
+      .min(2, { message: 'Answer must be at least 2 characters' }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
@@ -44,6 +50,9 @@ export const forgotPasswordSchema = z
       .string()
       .min(1, { message: 'Email is required' })
       .email({ message: 'Invalid email address' }),
+    securityAnswer: z
+      .string()
+      .min(1, { message: 'Please answer the security question' }),
     password: z
       .string()
       .min(1, { message: 'Password is required' })

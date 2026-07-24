@@ -56,16 +56,27 @@ export async function POST(request: Request) {
   // 2. SIGNUP ROUTE
   if (path.endsWith('/api/auth/signup')) {
     try {
-      const { name, email, password } = await request.json()
+      const { name, email, password, securityQuestion, securityAnswer } = await request.json()
       if (!email || !password) {
         return NextResponse.json({ message: 'Email and password are required' }, { status: 400 })
+      }
+      if (!securityQuestion || !securityAnswer) {
+        return NextResponse.json(
+          { message: 'A security question and answer are required' },
+          { status: 400 }
+        )
       }
 
       // Register with backend
       const registerResponse = await fetch(`${BACKEND_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          password,
+          security_question: securityQuestion,
+          security_answer: securityAnswer,
+        }),
       })
 
       if (!registerResponse.ok) {
@@ -159,10 +170,10 @@ export async function POST(request: Request) {
   // app has no mail server, so the owner sets a new password directly).
   if (path.endsWith('/api/auth/reset-password')) {
     try {
-      const { email, password } = await request.json()
-      if (!email || !password) {
+      const { email, password, securityAnswer } = await request.json()
+      if (!email || !password || !securityAnswer) {
         return NextResponse.json(
-          { message: 'Email and new password are required' },
+          { message: 'Email, security answer and new password are required' },
           { status: 400 }
         )
       }
@@ -170,7 +181,11 @@ export async function POST(request: Request) {
       const backendResponse = await fetch(`${BACKEND_URL}/api/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, new_password: password }),
+        body: JSON.stringify({
+          email,
+          security_answer: securityAnswer,
+          new_password: password,
+        }),
       })
 
       if (!backendResponse.ok) {
@@ -194,7 +209,37 @@ export async function POST(request: Request) {
   return NextResponse.json({ message: 'Not Found' }, { status: 404 })
 }
 
-// Support other methods with 405
-export async function GET() {
+export async function GET(request: Request) {
+  const url = new URL(request.url)
+
+  // SECURITY QUESTION LOOKUP — fetch the question to challenge the user with
+  // during password reset. Email is passed as a query param.
+  if (url.pathname.endsWith('/api/auth/security-question')) {
+    const email = url.searchParams.get('email')
+    if (!email) {
+      return NextResponse.json({ message: 'Email is required' }, { status: 400 })
+    }
+    try {
+      const backendResponse = await fetch(
+        `${BACKEND_URL}/api/auth/security-question?email=${encodeURIComponent(email)}`
+      )
+      if (!backendResponse.ok) {
+        const errorData = await backendResponse.json().catch(() => ({}))
+        return NextResponse.json(
+          { message: errorData.detail || 'No account found with that email' },
+          { status: backendResponse.status }
+        )
+      }
+      const data = await backendResponse.json()
+      return NextResponse.json({ securityQuestion: data.security_question })
+    } catch (backendError) {
+      console.warn('Backend security-question lookup not available:', backendError)
+      return NextResponse.json(
+        { message: 'Password reset service unavailable. Ensure backend is running.' },
+        { status: 503 }
+      )
+    }
+  }
+
   return NextResponse.json({ message: 'Method Not Allowed' }, { status: 405 })
 }

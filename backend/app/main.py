@@ -75,9 +75,29 @@ from app.core.config import settings
 from app.middleware.metrics import MetricsMiddleware
 
 # Initialize Database tables
+from sqlalchemy import inspect, text
 from app.db.database import Base, engine
 from app.models.user import User
 Base.metadata.create_all(bind=engine)
+
+
+def _ensure_user_security_columns() -> None:
+    """Idempotent, Alembic-free migration: add the security-question columns to
+    an existing ``users`` table (create_all only creates missing tables, not
+    missing columns). Works for both SQLite and PostgreSQL."""
+    existing = {c["name"] for c in inspect(engine).get_columns("users")}
+    to_add = {
+        "security_question": "ALTER TABLE users ADD COLUMN security_question VARCHAR",
+        "security_answer_hash": "ALTER TABLE users ADD COLUMN security_answer_hash VARCHAR",
+    }
+    with engine.begin() as conn:
+        for col, ddl in to_add.items():
+            if col not in existing:
+                conn.execute(text(ddl))
+                logger.info("Added users column", column=col)
+
+
+_ensure_user_security_columns()
 
 app = FastAPI(
     title=settings.APP_NAME,

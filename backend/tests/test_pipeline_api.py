@@ -37,7 +37,8 @@ def run_pipeline_verification():
     test_password = "password123"
     
     # Register
-    client.post("/api/auth/register", json={"email": test_email, "password": test_password})
+    client.post("/api/auth/register", json={"email": test_email, "password": test_password,
+                "security_question": "What was the name of your first pet?", "security_answer": "rex"})
     
     # Login
     login_res = client.post("/api/auth/login", data={"username": test_email, "password": test_password})

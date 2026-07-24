@@ -15,7 +15,8 @@ client = TestClient(app)
 def _make_user():
     email = f"sec_test_{uuid.uuid4().hex[:8]}@example.com"
     pwd = "securepassword123"
-    client.post("/api/auth/register", json={"email": email, "password": pwd})
+    client.post("/api/auth/register", json={"email": email, "password": pwd,
+                "security_question": "What was the name of your first pet?", "security_answer": "rex"})
     res = client.post("/api/auth/login", data={"username": email, "password": pwd})
     assert res.status_code == 200
     return email, res.json()

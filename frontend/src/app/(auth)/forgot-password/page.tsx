@@ -7,7 +7,7 @@ import { forgotPasswordSchema, ForgotPasswordInput } from '@/lib/schemas/auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Mail, Lock, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { Mail, Lock, ShieldQuestion, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react'
 import { BrandMark } from '@/components/brand/BrandMark'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -15,7 +15,11 @@ import { slideUp } from '@/lib/animations'
 import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { ROUTES } from '@/constants/routes'
 
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
 export default function ForgotPasswordPage() {
+  const [step, setStep] = React.useState<'email' | 'challenge'>('email')
+  const [question, setQuestion] = React.useState('')
   const [isLoading, setIsLoading] = React.useState(false)
   const [isSuccess, setIsSuccess] = React.useState(false)
   const [apiError, setApiError] = React.useState<string | null>(null)
@@ -23,16 +27,48 @@ export default function ForgotPasswordPage() {
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<ForgotPasswordInput>({
     resolver: zodResolver(forgotPasswordSchema),
     defaultValues: {
       email: '',
+      securityAnswer: '',
       password: '',
       confirmPassword: '',
     },
   })
 
+  // Step 1 — look up the account's security question by email.
+  const handleLookup = async () => {
+    setApiError(null)
+    const email = getValues('email')
+    if (!email || !EMAIL_RE.test(email)) {
+      setApiError('Please enter a valid email address.')
+      return
+    }
+    setIsLoading(true)
+    try {
+      const res = await fetch(`/api/auth/security-question?email=${encodeURIComponent(email)}`)
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setApiError(body.message || 'No account found with that email.')
+        return
+      }
+      if (!body.securityQuestion) {
+        setApiError('This account has no security question set, so it can’t be reset here.')
+        return
+      }
+      setQuestion(body.securityQuestion)
+      setStep('challenge')
+    } catch {
+      setApiError('Could not reach the server. Ensure the app backend is running.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Step 2 — verify the answer and set the new password.
   const onSubmit = async (data: ForgotPasswordInput) => {
     setIsLoading(true)
     setApiError(null)
@@ -40,10 +76,14 @@ export default function ForgotPasswordPage() {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: data.email, password: data.password }),
+        body: JSON.stringify({
+          email: data.email,
+          securityAnswer: data.securityAnswer,
+          password: data.password,
+        }),
       })
+      const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
         setApiError(body.message || 'Password reset failed. Please try again.')
         return
       }
@@ -55,8 +95,18 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  // Enter in step 1 looks up the question; in step 2 it submits the reset.
+  const onFormSubmit = (e: React.FormEvent) => {
+    if (step === 'email') {
+      e.preventDefault()
+      handleLookup()
+    } else {
+      handleSubmit(onSubmit)(e)
+    }
+  }
+
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-surface-secondary dark:bg-background overflow-hidden px-4">
+    <div className="relative min-h-screen flex items-center justify-center bg-surface-secondary dark:bg-background overflow-hidden px-4 py-8">
       {/* Background glow effects */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-brand-primary/10 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none" />
@@ -87,18 +137,17 @@ export default function ForgotPasswordPage() {
               <CardHeader className="space-y-1">
                 <CardTitle className="text-xl font-bold tracking-tight">Reset password</CardTitle>
                 <CardDescription className="text-xs">
-                  Enter your account email and choose a new password.
+                  {step === 'email'
+                    ? 'Enter your account email to continue.'
+                    : 'Answer your security question and choose a new password.'}
                 </CardDescription>
               </CardHeader>
 
               <CardContent>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={onFormSubmit} className="space-y-4">
                   {/* Email Input */}
                   <div className="space-y-1.5">
-                    <label
-                      htmlFor="email"
-                      className="text-xs font-semibold text-text-secondary"
-                    >
+                    <label htmlFor="email" className="text-xs font-semibold text-text-secondary">
                       Email Address
                     </label>
                     <div className="relative">
@@ -107,74 +156,92 @@ export default function ForgotPasswordPage() {
                         id="email"
                         type="email"
                         placeholder="name@example.com"
-                        disabled={isLoading}
+                        disabled={isLoading || step === 'challenge'}
                         className="pl-10 h-10 bg-transparent border-border focus-visible:ring-brand-primary"
                         {...register('email')}
                       />
                     </div>
                     {errors.email && (
-                      <p className="text-xs font-medium text-danger mt-1">
-                        {errors.email.message}
-                      </p>
+                      <p className="text-xs font-medium text-danger mt-1">{errors.email.message}</p>
                     )}
                   </div>
 
-                  {/* New Password Input */}
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="password"
-                      className="text-xs font-semibold text-text-secondary"
-                    >
-                      New Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 h-4.5 w-4.5 text-text-muted" />
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="At least 6 characters"
-                        disabled={isLoading}
-                        className="pl-10 h-10 bg-transparent border-border focus-visible:ring-brand-primary"
-                        {...register('password')}
-                      />
-                    </div>
-                    {errors.password && (
-                      <p className="text-xs font-medium text-danger mt-1">
-                        {errors.password.message}
-                      </p>
-                    )}
-                  </div>
+                  {step === 'challenge' && (
+                    <>
+                      {/* Security question (read-only challenge) */}
+                      <div className="space-y-1.5">
+                        <label htmlFor="securityAnswer" className="text-xs font-semibold text-text-secondary">
+                          Security Question
+                        </label>
+                        <div className="rounded-md border border-border/70 bg-surface-secondary/40 px-3 py-2 text-xs text-text-secondary flex items-start gap-2">
+                          <ShieldQuestion className="h-4 w-4 mt-0.5 shrink-0 text-brand-primary" />
+                          <span>{question}</span>
+                        </div>
+                        <Input
+                          id="securityAnswer"
+                          type="text"
+                          placeholder="Your answer"
+                          disabled={isLoading}
+                          className="h-10 bg-transparent border-border focus-visible:ring-brand-primary"
+                          {...register('securityAnswer')}
+                        />
+                        {errors.securityAnswer && (
+                          <p className="text-xs font-medium text-danger mt-1">
+                            {errors.securityAnswer.message}
+                          </p>
+                        )}
+                      </div>
 
-                  {/* Confirm Password Input */}
-                  <div className="space-y-1.5">
-                    <label
-                      htmlFor="confirmPassword"
-                      className="text-xs font-semibold text-text-secondary"
-                    >
-                      Confirm New Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 h-4.5 w-4.5 text-text-muted" />
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        placeholder="Re-enter your new password"
-                        disabled={isLoading}
-                        className="pl-10 h-10 bg-transparent border-border focus-visible:ring-brand-primary"
-                        {...register('confirmPassword')}
-                      />
-                    </div>
-                    {errors.confirmPassword && (
-                      <p className="text-xs font-medium text-danger mt-1">
-                        {errors.confirmPassword.message}
-                      </p>
-                    )}
-                  </div>
+                      {/* New Password */}
+                      <div className="space-y-1.5">
+                        <label htmlFor="password" className="text-xs font-semibold text-text-secondary">
+                          New Password
+                        </label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-2.5 h-4.5 w-4.5 text-text-muted" />
+                          <Input
+                            id="password"
+                            type="password"
+                            placeholder="At least 6 characters"
+                            disabled={isLoading}
+                            className="pl-10 h-10 bg-transparent border-border focus-visible:ring-brand-primary"
+                            {...register('password')}
+                          />
+                        </div>
+                        {errors.password && (
+                          <p className="text-xs font-medium text-danger mt-1">
+                            {errors.password.message}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Confirm New Password */}
+                      <div className="space-y-1.5">
+                        <label htmlFor="confirmPassword" className="text-xs font-semibold text-text-secondary">
+                          Confirm New Password
+                        </label>
+                        <div className="relative">
+                          <Lock className="absolute left-3 top-2.5 h-4.5 w-4.5 text-text-muted" />
+                          <Input
+                            id="confirmPassword"
+                            type="password"
+                            placeholder="Re-enter your new password"
+                            disabled={isLoading}
+                            className="pl-10 h-10 bg-transparent border-border focus-visible:ring-brand-primary"
+                            {...register('confirmPassword')}
+                          />
+                        </div>
+                        {errors.confirmPassword && (
+                          <p className="text-xs font-medium text-danger mt-1">
+                            {errors.confirmPassword.message}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
 
                   {apiError && (
-                    <p className="text-xs font-medium text-danger text-center">
-                      {apiError}
-                    </p>
+                    <p className="text-xs font-medium text-danger text-center">{apiError}</p>
                   )}
 
                   <Button
@@ -185,8 +252,10 @@ export default function ForgotPasswordPage() {
                     {isLoading ? (
                       <span className="flex items-center justify-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Updating password...
+                        {step === 'email' ? 'Checking...' : 'Updating password...'}
                       </span>
+                    ) : step === 'email' ? (
+                      'Continue'
                     ) : (
                       'Update Password'
                     )}
