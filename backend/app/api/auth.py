@@ -22,6 +22,7 @@ from app.schemas.user import (
     TokenRefreshRequest,
     PasswordReset,
     SecurityQuestionOut,
+    SecurityQuestionUpdate,
 )
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -71,6 +72,30 @@ def get_security_question(email: str, db: Session = Depends(get_db)) -> dict:
             detail="No account found with that email",
         )
     return {"security_question": user.security_question}
+
+
+@router.put("/security-question", response_model=SecurityQuestionOut)
+def update_security_question(
+    body: SecurityQuestionUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Sets or changes the logged-in user's security question. Requires the
+    current password so a walked-up, unlocked session can't silently swap the
+    recovery question. Also lets accounts created before this feature opt in.
+    """
+    if not verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password",
+        )
+
+    current_user.security_question = body.security_question
+    current_user.security_answer_hash = get_password_hash(_normalize_answer(body.security_answer))
+    db.add(current_user)
+    db.commit()
+    return {"security_question": current_user.security_question}
 
 
 @router.post("/reset-password", response_model=UserOut, dependencies=[Depends(login_rate_limit)])

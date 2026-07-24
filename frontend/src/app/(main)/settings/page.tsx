@@ -21,11 +21,14 @@ import {
   Moon,
   Sun,
   Laptop,
+  ShieldQuestion,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
 import { slideUp } from '@/lib/animations'
+import { SECURITY_QUESTIONS } from '@/constants/security-questions'
+import apiClient from '@/lib/api-client'
 
 interface ApiKey {
   id: string
@@ -43,6 +46,49 @@ export default function SettingsPage() {
   const [profileName, setProfileName] = React.useState(user?.name || '')
   const [profileEmail, setProfileEmail] = React.useState(user?.email || '')
   const [isSavingProfile, setIsSavingProfile] = React.useState(false)
+
+  // Security question (offline password recovery)
+  const [currentQuestion, setCurrentQuestion] = React.useState<string | null>(null)
+  const [secQuestion, setSecQuestion] = React.useState('')
+  const [secAnswer, setSecAnswer] = React.useState('')
+  const [secCurrentPassword, setSecCurrentPassword] = React.useState('')
+  const [isSavingSecurity, setIsSavingSecurity] = React.useState(false)
+
+  // Load the account's currently-set security question (public lookup by email).
+  React.useEffect(() => {
+    if (!user?.email) return
+    fetch(`/api/auth/security-question?email=${encodeURIComponent(user.email)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setCurrentQuestion(d?.securityQuestion ?? null))
+      .catch(() => {})
+  }, [user?.email])
+
+  const handleSaveSecurity = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!secQuestion || secAnswer.trim().length < 2 || !secCurrentPassword) {
+      toast.error('Choose a question, enter an answer, and confirm your current password.')
+      return
+    }
+    setIsSavingSecurity(true)
+    try {
+      const res = await apiClient.put<{ securityQuestion: string | null }>(
+        '/settings/security-question',
+        {
+          current_password: secCurrentPassword,
+          security_question: secQuestion,
+          security_answer: secAnswer,
+        }
+      )
+      setCurrentQuestion(res.securityQuestion ?? secQuestion)
+      setSecAnswer('')
+      setSecCurrentPassword('')
+      toast.success('Security question updated')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not update security question')
+    } finally {
+      setIsSavingSecurity(false)
+    }
+  }
 
   // API keys state
   const [apiKeys, setApiKeys] = React.useState<ApiKey[]>(() => [
@@ -176,7 +222,7 @@ export default function SettingsPage() {
 
         {/* Tab 1: Profile */}
         <TabsContent value="profile">
-          <motion.div variants={slideUp} initial="initial" animate="animate">
+          <motion.div variants={slideUp} initial="initial" animate="animate" className="space-y-6">
             <form onSubmit={handleSaveProfile}>
               <Card className="border border-border/60 bg-surface-primary/80 backdrop-blur-md rounded-2xl shadow-sm">
                 <CardHeader>
@@ -232,6 +278,96 @@ export default function SettingsPage() {
                       </span>
                     ) : (
                       'Save Changes'
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
+            </form>
+
+            {/* Security question — used for offline password recovery */}
+            <form onSubmit={handleSaveSecurity}>
+              <Card className="border border-border/60 bg-surface-primary/80 backdrop-blur-md rounded-2xl shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <ShieldQuestion className="h-4 w-4 text-brand-primary" />
+                    Security Question
+                    <span
+                      className={cn(
+                        'px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border',
+                        currentQuestion
+                          ? 'bg-success/10 text-success border-success/20'
+                          : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                      )}
+                    >
+                      {currentQuestion ? 'Set' : 'Not set'}
+                    </span>
+                  </CardTitle>
+                  <CardDescription className="text-[10px]">
+                    Used to verify it's you when resetting a forgotten password. Changing it
+                    requires your current password.
+                    {currentQuestion && (
+                      <>
+                        {' '}Current question: <span className="text-text-secondary">“{currentQuestion}”</span>
+                      </>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-text-secondary">Security Question</label>
+                    <select
+                      value={secQuestion}
+                      onChange={(e) => setSecQuestion(e.target.value)}
+                      disabled={isSavingSecurity}
+                      className="w-full h-10 px-3 rounded-md bg-transparent border border-border text-xs text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary disabled:opacity-50"
+                    >
+                      <option value="" disabled>
+                        Choose a question…
+                      </option>
+                      {SECURITY_QUESTIONS.map((q) => (
+                        <option key={q} value={q}>
+                          {q}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-text-secondary">Your Answer</label>
+                    <Input
+                      value={secAnswer}
+                      onChange={(e) => setSecAnswer(e.target.value)}
+                      placeholder="Remember this — you'll need it to reset your password"
+                      disabled={isSavingSecurity}
+                      className="h-10 text-xs bg-transparent border-border focus-visible:ring-brand-primary"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-text-secondary">Current Password</label>
+                    <Input
+                      type="password"
+                      value={secCurrentPassword}
+                      onChange={(e) => setSecCurrentPassword(e.target.value)}
+                      placeholder="••••••••"
+                      disabled={isSavingSecurity}
+                      className="h-10 text-xs bg-transparent border-border focus-visible:ring-brand-primary"
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter className="border-t border-border/50 py-3 flex justify-end">
+                  <Button
+                    type="submit"
+                    disabled={isSavingSecurity}
+                    className="bg-brand-primary text-white hover:bg-brand-primary/95 text-xs h-9 rounded-lg px-4"
+                  >
+                    {isSavingSecurity ? (
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Saving...
+                      </span>
+                    ) : currentQuestion ? (
+                      'Update Security Question'
+                    ) : (
+                      'Set Security Question'
                     )}
                   </Button>
                 </CardFooter>

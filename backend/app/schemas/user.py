@@ -18,6 +18,11 @@ class SecurityQuestionOut(BaseModel):
     # account predates this feature and has no security question set.
     security_question: str | None
 
+class SecurityQuestionUpdate(BaseModel):
+    current_password: str
+    security_question: str
+    security_answer: str
+
 class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
