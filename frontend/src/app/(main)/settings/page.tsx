@@ -37,6 +37,29 @@ interface ApiKey {
   createdAt: string
 }
 
+// Presets fill the OpenAI-compatible endpoint for popular providers so users
+// only paste a key + model. Gemini and Anthropic are reached via their
+// official OpenAI-compatibility endpoints. Base URL stays editable.
+const LLM_PRESETS: Record<string, { label: string; baseUrl: string; modelHint: string }> = {
+  gemini: {
+    label: 'Google Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    modelHint: 'gemini-2.5-flash',
+  },
+  anthropic: {
+    label: 'Anthropic (Claude)',
+    baseUrl: 'https://api.anthropic.com/v1',
+    modelHint: 'claude-3-5-sonnet-latest',
+  },
+  openai: { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', modelHint: 'gpt-4o-mini' },
+  groq: {
+    label: 'Groq',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    modelHint: 'llama-3.3-70b-versatile',
+  },
+  custom: { label: 'Other (enter URL)', baseUrl: '', modelHint: 'model-id' },
+}
+
 export default function SettingsPage() {
   const { user, setUser } = useAuthStore()
   const { streamingSpeed, setStreamingSpeed } = useWorkspaceStore()
@@ -109,10 +132,16 @@ export default function SettingsPage() {
   const [keyConfigured, setKeyConfigured] = React.useState<boolean | null>(null)
 
   // Custom OpenAI-compatible provider (any API key)
-  const [customBaseUrl, setCustomBaseUrl] = React.useState('')
+  const [customPreset, setCustomPreset] = React.useState('gemini')
+  const [customBaseUrl, setCustomBaseUrl] = React.useState(LLM_PRESETS.gemini.baseUrl)
   const [customApiKey, setCustomApiKey] = React.useState('')
   const [customModel, setCustomModel] = React.useState('')
   const [isSavingCustom, setIsSavingCustom] = React.useState(false)
+
+  const applyPreset = (id: string) => {
+    setCustomPreset(id)
+    setCustomBaseUrl(LLM_PRESETS[id].baseUrl)
+  }
 
   const handleSaveCustom = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -464,15 +493,30 @@ export default function SettingsPage() {
             {/* Custom OpenAI-compatible provider — use any API key */}
             <Card className="border border-border/60 bg-surface-primary/80 backdrop-blur-md rounded-2xl shadow-sm">
               <CardHeader>
-                <CardTitle className="text-sm font-bold">Custom Model (any provider)</CardTitle>
+                <CardTitle className="text-sm font-bold">Bring your own model / API key</CardTitle>
                 <CardDescription className="text-[10px]">
-                  Use any OpenAI-compatible API (OpenAI, Groq, Together, DeepSeek, a local
-                  server…). Enter the endpoint, your API key, and a model id — then pick it from
-                  the model menu in chat. Stored locally on this device.
+                  Use your own key from Google Gemini, Anthropic (Claude), OpenAI, Groq, or any
+                  OpenAI-compatible API. Pick a provider, paste your key, enter a model id — then
+                  select it from the model menu in chat. Your key is stored locally on this device.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSaveCustom} className="space-y-3 max-w-lg">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-text-secondary">Provider</label>
+                    <select
+                      value={customPreset}
+                      onChange={(e) => applyPreset(e.target.value)}
+                      disabled={isSavingCustom}
+                      className="w-full h-10 px-3 rounded-md bg-transparent border border-border text-xs text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand-primary disabled:opacity-50"
+                    >
+                      {Object.entries(LLM_PRESETS).map(([id, p]) => (
+                        <option key={id} value={id}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-text-secondary">Base URL</label>
                     <Input
@@ -497,7 +541,7 @@ export default function SettingsPage() {
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-text-secondary">Model ID</label>
                     <Input
-                      placeholder="gpt-4o-mini"
+                      placeholder={LLM_PRESETS[customPreset].modelHint}
                       value={customModel}
                       onChange={(e) => setCustomModel(e.target.value)}
                       disabled={isSavingCustom}
