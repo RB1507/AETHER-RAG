@@ -8,8 +8,9 @@ Everything runs on your machine; your documents never leave it.
 - **Backend** — FastAPI (Python) RAG pipeline: ingest → chunk → embed → hybrid
   retrieve (BM25 + vector) → optional rerank → LLM answer with citations.
 - **Frontend** — Next.js UI, packaged as an Electron desktop app.
-- **Vector store** — LanceDB (embedded, on-disk). **LLM** — OpenRouter (hosted
-  free models) or Ollama (fully local).
+- **Vector store** — LanceDB (embedded, on-disk). **LLM** — bring your own key
+  from Google Gemini, Anthropic (Claude), OpenAI, Groq, OpenRouter, or any
+  OpenAI-compatible endpoint; or run fully local with Ollama.
 
 ---
 
@@ -24,13 +25,20 @@ dist_installer/AETHER RAG-Setup-<version>.exe
 It's unsigned, so Windows SmartScreen shows a one-time "Unknown publisher"
 prompt → **More info → Run anyway**. This is expected.
 
-**First run:** open **Settings → API Credentials** and paste an OpenRouter API
-key (free at <https://openrouter.ai/keys>) to enable answers. The key is stored
-locally and never bundled into the app. The first launch also downloads the
-embedding model (~64 MB) once, so it needs internet that first time.
+**First run — add an LLM key** in **Settings → API Credentials**:
+
+- **Bring your own model** (recommended): pick a provider (Google Gemini,
+  Anthropic/Claude, OpenAI, Groq, or "Other" for any OpenAI-compatible URL),
+  paste your API key, enter a model id, **Save & Use**, then select it from the
+  model menu in chat.
+- Or paste a free **OpenRouter** key (<https://openrouter.ai/keys>).
+
+Keys are stored locally on your device, never bundled into the app. The first
+launch also downloads the embedding model (~64 MB) once, so it needs internet
+that first time.
 
 > Tip: to confirm you're on the latest build, the sidebar shows the version
-> (e.g. `v0.1.1 • Beta`).
+> (e.g. `v0.1.4 • Beta`).
 
 ---
 
