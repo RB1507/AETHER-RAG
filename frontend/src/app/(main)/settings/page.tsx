@@ -108,6 +108,34 @@ export default function SettingsPage() {
   const [isSavingKey, setIsSavingKey] = React.useState(false)
   const [keyConfigured, setKeyConfigured] = React.useState<boolean | null>(null)
 
+  // Custom OpenAI-compatible provider (any API key)
+  const [customBaseUrl, setCustomBaseUrl] = React.useState('')
+  const [customApiKey, setCustomApiKey] = React.useState('')
+  const [customModel, setCustomModel] = React.useState('')
+  const [isSavingCustom, setIsSavingCustom] = React.useState(false)
+
+  const handleSaveCustom = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!customBaseUrl.trim() || !customApiKey.trim() || !customModel.trim()) {
+      toast.error('Base URL, API key and model are all required.')
+      return
+    }
+    setIsSavingCustom(true)
+    try {
+      await apiClient.post('/settings/llm/custom', {
+        base_url: customBaseUrl,
+        api_key: customApiKey,
+        model: customModel,
+      })
+      setCustomApiKey('')
+      toast.success(`Custom model set: ${customModel}. Pick it from the model menu in chat.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save custom model')
+    } finally {
+      setIsSavingCustom(false)
+    }
+  }
+
   React.useEffect(() => {
     window.aetherRAG
       ?.getApiKeyStatus()
@@ -430,6 +458,69 @@ export default function SettingsPage() {
                     <code className="font-mono">backend/.env</code>.
                   </p>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Custom OpenAI-compatible provider — use any API key */}
+            <Card className="border border-border/60 bg-surface-primary/80 backdrop-blur-md rounded-2xl shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-sm font-bold">Custom Model (any provider)</CardTitle>
+                <CardDescription className="text-[10px]">
+                  Use any OpenAI-compatible API (OpenAI, Groq, Together, DeepSeek, a local
+                  server…). Enter the endpoint, your API key, and a model id — then pick it from
+                  the model menu in chat. Stored locally on this device.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSaveCustom} className="space-y-3 max-w-lg">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-text-secondary">Base URL</label>
+                    <Input
+                      placeholder="https://api.openai.com/v1"
+                      value={customBaseUrl}
+                      onChange={(e) => setCustomBaseUrl(e.target.value)}
+                      disabled={isSavingCustom}
+                      className="h-10 text-xs bg-transparent border-border focus-visible:ring-brand-primary font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-text-secondary">API Key</label>
+                    <Input
+                      type="password"
+                      placeholder="sk-..."
+                      value={customApiKey}
+                      onChange={(e) => setCustomApiKey(e.target.value)}
+                      disabled={isSavingCustom}
+                      className="h-10 text-xs bg-transparent border-border focus-visible:ring-brand-primary font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-text-secondary">Model ID</label>
+                    <Input
+                      placeholder="gpt-4o-mini"
+                      value={customModel}
+                      onChange={(e) => setCustomModel(e.target.value)}
+                      disabled={isSavingCustom}
+                      className="h-10 text-xs bg-transparent border-border focus-visible:ring-brand-primary font-mono"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      disabled={isSavingCustom}
+                      className="bg-brand-primary text-white hover:bg-brand-primary/95 text-xs h-9 rounded-lg px-4"
+                    >
+                      {isSavingCustom ? (
+                        <span className="flex items-center gap-1.5">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Saving...
+                        </span>
+                      ) : (
+                        'Save & Use'
+                      )}
+                    </Button>
+                  </div>
+                </form>
               </CardContent>
             </Card>
 

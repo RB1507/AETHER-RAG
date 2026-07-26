@@ -22,6 +22,12 @@ class LLMSelection(BaseModel):
     model: str
 
 
+class CustomLLM(BaseModel):
+    base_url: str
+    api_key: str
+    model: str
+
+
 def _ollama_models() -> list[str]:
     """Locally-pulled Ollama models, or [] if Ollama isn't running."""
     try:
@@ -47,6 +53,10 @@ def get_llm_settings(current_user: User = Depends(get_current_user)) -> dict:
         if pid == "ollama":
             models = _ollama_models()
             available = bool(models)
+        elif pid == "custom":
+            cust = llm_state.get().get("custom") or {}
+            models = [cust["model"]] if cust.get("model") else []
+            available = llm_state.provider_has_key("custom")
         else:
             models = llm_state.CURATED_MODELS.get(pid, [])
             available = llm_state.provider_has_key(pid)
@@ -78,4 +88,22 @@ def set_llm_settings(
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
     logger.info("LLM selection changed", provider=new["provider"], model=new["model"])
+    return new
+
+
+@router.post("/llm/custom")
+def set_custom_llm(
+    cfg: CustomLLM,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Save a user-supplied OpenAI-compatible endpoint (base URL + API key +
+    model) and switch to it. Works for any provider that speaks the OpenAI
+    /chat/completions API. Effective immediately, no restart."""
+    if not (cfg.base_url.strip() and cfg.api_key.strip() and cfg.model.strip()):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="base_url, api_key and model are all required",
+        )
+    new = llm_state.set_custom(cfg.base_url.strip(), cfg.api_key.strip(), cfg.model.strip())
+    logger.info("Custom LLM configured", model=new["model"])
     return new

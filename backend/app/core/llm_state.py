@@ -37,6 +37,17 @@ PROVIDERS = {
         "fallback_attr": None,
         "is_openrouter": False,
     },
+    # User-supplied OpenAI-compatible endpoint. Unlike the others, its
+    # base_url/key/model come from the persisted selection (set in Settings),
+    # not from env — so any provider (OpenAI, Groq, Together, vLLM, ...) works.
+    "custom": {
+        "label": "Custom (OpenAI-compatible)",
+        "base_url_attr": None,
+        "key_attr": None,
+        "model_attr": None,
+        "fallback_attr": None,
+        "is_openrouter": False,
+    },
 }
 
 # Curated model menus for the hosted providers. Ollama's list is discovered live
@@ -72,12 +83,15 @@ def _load() -> dict:
     if _state is not None:
         return _state
     provider = settings.LLM_PROVIDER if settings.LLM_PROVIDER in PROVIDERS else "mistral"
-    _state = {"provider": provider, "model": getattr(settings, PROVIDERS[provider]["model_attr"])}
+    _state = {"provider": provider, "model": getattr(settings, PROVIDERS[provider]["model_attr"]), "custom": None}
     try:
         with open(_state_path(), "r", encoding="utf-8") as f:
             saved = json.load(f)
+        if isinstance(saved.get("custom"), dict):
+            _state["custom"] = saved["custom"]
         if saved.get("provider") in PROVIDERS and saved.get("model"):
-            _state = {"provider": saved["provider"], "model": saved["model"]}
+            _state["provider"] = saved["provider"]
+            _state["model"] = saved["model"]
     except (OSError, json.JSONDecodeError):
         pass  # ponytail: no file / bad file → keep env defaults
     return _state
@@ -88,6 +102,14 @@ def get() -> dict:
         return dict(_load())
 
 
+def _persist() -> None:
+    try:
+        with open(_state_path(), "w", encoding="utf-8") as f:
+            json.dump(_state, f)
+    except OSError:
+        pass  # ponytail: persistence is best-effort; in-memory switch still works
+
+
 def set_selection(provider: str, model: str) -> dict:
     """Switch the active provider+model and persist. Takes effect on next request."""
     global _state
@@ -96,16 +118,33 @@ def set_selection(provider: str, model: str) -> dict:
     if not model:
         raise ValueError("Model is required")
     with _lock:
-        _state = {"provider": provider, "model": model}
-        try:
-            with open(_state_path(), "w", encoding="utf-8") as f:
-                json.dump(_state, f)
-        except OSError:
-            pass  # ponytail: persistence is best-effort; in-memory switch still works
-        return dict(_state)
+        cur = dict(_load())  # keep any saved custom config
+        cur["provider"] = provider
+        cur["model"] = model
+        _state = cur
+        _persist()
+        return {"provider": provider, "model": model}
+
+
+def set_custom(base_url: str, api_key: str, model: str) -> dict:
+    """Save a user-supplied OpenAI-compatible endpoint and switch to it."""
+    global _state
+    if not (base_url and api_key and model):
+        raise ValueError("base_url, api_key and model are required")
+    with _lock:
+        cur = dict(_load())
+        cur["custom"] = {"base_url": base_url.rstrip("/"), "api_key": api_key, "model": model}
+        cur["provider"] = "custom"
+        cur["model"] = model
+        _state = cur
+        _persist()
+        return {"provider": "custom", "model": model}
 
 
 def provider_has_key(provider: str) -> bool:
+    if provider == "custom":
+        c = get().get("custom") or {}
+        return bool(c.get("base_url") and c.get("api_key"))
     attr = PROVIDERS[provider]["key_attr"]
     return True if attr is None else bool(getattr(settings, attr, "").strip())
 
@@ -114,6 +153,17 @@ def effective() -> dict:
     """Resolved config the generator uses: base_url, api_key, model chain, flags."""
     st = get()
     provider = st["provider"]
+    if provider == "custom":
+        c = st.get("custom") or {}
+        model = c.get("model", "")
+        return {
+            "provider": "custom",
+            "base_url": c.get("base_url", ""),
+            "api_key": c.get("api_key", ""),
+            "model": model,
+            "chain": [model] if model else [],
+            "is_openrouter": False,
+        }
     prov = PROVIDERS[provider]
     api_key = getattr(settings, prov["key_attr"]) if prov["key_attr"] else ""
     chain = [st["model"]]
