@@ -152,6 +152,9 @@ function prodBackendEnv() {
       fs.mkdirSync(path.join(dataDir, sub), { recursive: true });
     } catch {}
   }
+  // First run: seed the bundled embedding model into the writable cache so the
+  // first launch works offline (no HuggingFace download). No-op if present.
+  seedModelCache(path.join(dataDir, "model_cache"));
   // SQLite URL needs forward slashes even on Windows.
   const dbPath = path.join(dataDir, "sql_app.db").replace(/\\/g, "/");
 
@@ -178,6 +181,23 @@ function prodBackendEnv() {
     console.log("[backend] applied user overrides from settings.env");
   }
   return env;
+}
+
+/** Copy the bundled read-only embedding model into the writable cache on first
+ *  run so the first launch needs no download. No-op if a model is already there. */
+function seedModelCache(destDir) {
+  const src = path.join(RES_DIR, "backend", "model_cache");
+  try {
+    if (!fs.existsSync(src)) return;
+    const hasModel =
+      fs.existsSync(destDir) &&
+      fs.readdirSync(destDir).some((n) => n.startsWith("models--"));
+    if (hasModel) return;
+    fs.cpSync(src, destDir, { recursive: true });
+    console.log("[backend] seeded bundled embedding model ->", destDir);
+  } catch (e) {
+    console.warn("[backend] embedding model seed failed:", e.message);
+  }
 }
 
 /** Persist a generated SECRET_KEY in userData so tokens survive restarts. */

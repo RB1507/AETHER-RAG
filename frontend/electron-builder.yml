@@ -22,6 +22,10 @@ extraResources:
   # Bundled backend config (read by frozen config.py next to the exe).
   - from: ../backend/.env.production
     to: backend/.env
+  # Embedding model (~65 MB), seeded into the writable cache on first run so the
+  # first launch works offline (no HuggingFace download). See seedModelCache.
+  - from: ../backend/model_cache
+    to: backend/model_cache
   # Next.js standalone server + its server-side node_modules.
   - from: .next/standalone
     to: frontend
