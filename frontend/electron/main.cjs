@@ -244,6 +244,9 @@ async function startBackend() {
     cwd: path.dirname(PROD_BACKEND_EXE),
     env,
     stdio: "inherit",
+    // The frozen backend is a console app (keeps stdout valid for uvicorn);
+    // hide its console window so no terminal pops up on launch.
+    windowsHide: true,
   });
   track(child, "backend");
 }
@@ -285,6 +288,7 @@ async function startFrontend() {
       AETHERRAG_DATA_DIR: frontendDataDir,
     },
     stdio: "inherit",
+    windowsHide: true,
   });
   track(child, "frontend");
 }

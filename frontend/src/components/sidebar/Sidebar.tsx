@@ -94,7 +94,7 @@ export function Sidebar({ className, onCloseMobile }: SidebarProps) {
         </div>
         <div>
           <h2 className="font-bold text-sm leading-none tracking-tight">AETHER RAG</h2>
-          <span className="text-[10px] text-text-muted">v0.1.3 • Beta</span>
+          <span className="text-[10px] text-text-muted">v0.1.4 • Beta</span>
         </div>
       </div>
 
