@@ -166,4 +166,12 @@
   html {
     @apply font-sans;
   }
+  /* Native <select> popups don't reliably follow color-scheme on Windows
+     Chromium — the option text inherited the near-white theme color on a white
+     popup (invisible in dark mode). Force solid popover colors so options are
+     readable in both themes. */
+  select option {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
 }
