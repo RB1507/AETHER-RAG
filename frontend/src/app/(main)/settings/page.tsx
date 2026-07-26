@@ -14,10 +14,6 @@ import {
   Sliders,
   Sparkles,
   Loader2,
-  Plus,
-  Trash2,
-  Copy,
-  Check,
   Moon,
   Sun,
   Laptop,
@@ -29,13 +25,6 @@ import { motion } from 'framer-motion'
 import { slideUp } from '@/lib/animations'
 import { SECURITY_QUESTIONS } from '@/constants/security-questions'
 import apiClient from '@/lib/api-client'
-
-interface ApiKey {
-  id: string
-  name: string
-  key: string
-  createdAt: string
-}
 
 // Presets fill the OpenAI-compatible endpoint for popular providers so users
 // only paste a key + model. Gemini and Anthropic are reached via their
@@ -112,18 +101,6 @@ export default function SettingsPage() {
       setIsSavingSecurity(false)
     }
   }
-
-  // API keys state
-  const [apiKeys, setApiKeys] = React.useState<ApiKey[]>(() => [
-    {
-      id: 'key_1',
-      name: 'Development Groundings Key',
-      key: 'sk_aether_4a8bc9••••••••••••••4e81',
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    },
-  ])
-  const [newKeyName, setNewKeyName] = React.useState('')
-  const [copiedKeyId, setCopiedKeyId] = React.useState<string | null>(null)
 
   // Real OpenRouter key via the Electron desktop bridge (no key is bundled).
   const isDesktop = typeof window !== 'undefined' && !!window.aetherRAG
@@ -211,44 +188,6 @@ export default function SettingsPage() {
     })
     setIsSavingProfile(false)
     toast.success('Profile updated successfully')
-  }
-
-  // Generate mock API Key
-  const handleCreateApiKey = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newKeyName.trim()) return
-
-    const randomHex = Array.from({ length: 16 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('')
-    const secretKey = `sk_aether_${randomHex.slice(0, 6)}••••••••••••••${randomHex.slice(12)}`
-
-    const newKey: ApiKey = {
-      id: `key_${Math.random().toString(36).substr(2, 9)}`,
-      name: newKeyName,
-      key: secretKey,
-      createdAt: new Date().toISOString(),
-    }
-
-    setApiKeys((prev) => [...prev, newKey])
-    setNewKeyName('')
-    toast.success(`Generated API Key: ${newKey.name}`)
-  }
-
-  // Revoke API Key
-  const handleRevokeKey = (id: string) => {
-    if (confirm('Are you sure you want to revoke this API key? Apps using it will fail.')) {
-      setApiKeys((prev) => prev.filter((k) => k.id !== id))
-      toast.success('API key revoked')
-    }
-  }
-
-  // Copy API key to clipboard simulation
-  const handleCopyKey = (key: ApiKey) => {
-    navigator.clipboard.writeText(`sk_aether_mock_full_key_${key.id}`)
-    setCopiedKeyId(key.id)
-    toast.success('API key copied to clipboard')
-    setTimeout(() => setCopiedKeyId(null), 2000)
   }
 
   return (
@@ -565,91 +504,6 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                 </form>
-              </CardContent>
-            </Card>
-
-            {/* Generate Key */}
-            <Card className="border border-border/60 bg-surface-primary/80 backdrop-blur-md rounded-2xl shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-sm font-bold">API Access Tokens</CardTitle>
-                <CardDescription className="text-[10px]">
-                  Generate system keys to query vector grounding datasets directly from outside CLI tools.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleCreateApiKey} className="flex gap-2 items-end max-w-lg">
-                  <div className="flex-1 space-y-1.5">
-                    <label className="text-xs font-semibold text-text-secondary">Token Name</label>
-                    <Input
-                      placeholder="Dev, Staging server..."
-                      value={newKeyName}
-                      onChange={(e) => setNewKeyName(e.target.value)}
-                      required
-                      className="h-10 text-xs bg-transparent border-border focus-visible:ring-brand-primary"
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="bg-brand-primary text-white hover:bg-brand-primary/95 text-xs h-10 rounded-lg shrink-0 px-4"
-                  >
-                    <Plus className="h-4 w-4 mr-1.5" />
-                    Generate Key
-                  </Button>
-                </form>
-
-                {/* API Key List */}
-                <div className="mt-6 space-y-2 border-t border-border/50 pt-6">
-                  <h4 className="text-[10px] font-bold uppercase text-text-muted tracking-wider mb-2">
-                    Active API Credentials
-                  </h4>
-                  {apiKeys.length === 0 ? (
-                    <div className="text-center py-6 text-text-muted text-xs border border-dashed border-border/55 rounded-xl">
-                      No API credentials generated yet
-                    </div>
-                  ) : (
-                    apiKeys.map((key) => (
-                      <div
-                        key={key.id}
-                        className="flex items-center justify-between p-3.5 rounded-xl border border-border/55 bg-surface-primary/30"
-                      >
-                        <div className="min-w-0 space-y-1 leading-tight text-left">
-                          <p className="text-xs font-semibold text-text-primary truncate">
-                            {key.name}
-                          </p>
-                          <p className="text-[10px] text-text-muted flex gap-2 font-mono">
-                            <span>{key.key}</span>
-                            <span>•</span>
-                            <span>Created {new Date(key.createdAt).toLocaleDateString()}</span>
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0 ml-4">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleCopyKey(key)}
-                            className="hover:bg-muted rounded-lg h-8 w-8 text-text-muted"
-                            title="Copy Key"
-                          >
-                            {copiedKeyId === key.id ? (
-                              <Check className="h-4 w-4 text-success" />
-                            ) : (
-                              <Copy className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRevokeKey(key.id)}
-                            className="hover:bg-danger/10 hover:text-danger rounded-lg h-8 w-8 text-text-muted"
-                            title="Revoke Key"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
               </CardContent>
             </Card>
           </motion.div>
