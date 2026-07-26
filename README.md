@@ -33,12 +33,13 @@ prompt → **More info → Run anyway**. This is expected.
   model menu in chat.
 - Or paste a free **OpenRouter** key (<https://openrouter.ai/keys>).
 
-Keys are stored locally on your device, never bundled into the app. The first
-launch also downloads the embedding model (~64 MB) once, so it needs internet
-that first time.
+Keys are stored locally on your device, never bundled into the app. The
+embedding model (~65 MB) is bundled into the installer and seeded on first
+launch, so the app works offline out of the box — only your chosen LLM
+provider needs network access.
 
 > Tip: to confirm you're on the latest build, the sidebar shows the version
-> (e.g. `v0.1.4 • Beta`).
+> (e.g. `v0.1.5 • Beta`).
 
 ---
 
@@ -122,11 +123,16 @@ cd ../../frontend
 npm run dist
 ```
 
-Output: `dist_installer/AETHER RAG-Setup-<version>.exe`. The full build takes
-~15 min (the PyInstaller freeze and NSIS compression are the slow parts); if
-only frontend changed, skip step 1 (~10 min). Bump `frontend/package.json`
-`version` (and the sidebar label in `Sidebar.tsx`) so new installs are
-distinguishable.
+Output: `dist_installer/AETHER RAG-Setup-<version>.exe` (~360 MB). A build takes
+**~20–25 min** — NSIS compression of the ~1 GB app is the long pole and runs
+whether or not you re-freeze; the freeze (step 1) only adds ~5–8 min on top, so
+skipping it when only the frontend changed saves less than you'd think. Bump
+`frontend/package.json` `version` (and the sidebar label in `Sidebar.tsx`) so
+new installs are distinguishable.
+
+> **Offline model:** the installer bundles `backend/model_cache` (the ~65 MB
+> embedding model) so first run works offline. That folder must be populated
+> before building — on a fresh clone, run the app once in dev to download it.
 
 > Code signing is intentionally off (no paid cert). To sign, set `CSC_LINK`
 > and `CSC_KEY_PASSWORD` before `npm run dist` — no code changes needed.
