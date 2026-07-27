@@ -99,3 +99,66 @@ describe('GET /api/auth/security-question', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('POST /api/auth/signup', () => {
+  const body = {
+    name: 'A',
+    email: 'a@b.com',
+    password: 'pw',
+    securityQuestion: 'First pet?',
+    securityAnswer: 'Rex',
+  }
+
+  it('registers (forwarding security fields) then auto-logs-in', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(fakeRes(201, { email: 'a@b.com' })) // register
+      .mockResolvedValueOnce(fakeRes(200, { access_token: 'AT', refresh_token: 'RT' })) // login
+    const res = await post('/api/auth/signup', body)
+    expect(res.status).toBe(200)
+    expect((await res.json()).accessToken).toBe('AT')
+    const registerBody = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)
+    expect(registerBody.security_question).toBe('First pet?')
+    expect(registerBody.security_answer).toBe('Rex')
+  })
+
+  it('requires a security question + answer (400, no fetch)', async () => {
+    const res = await post('/api/auth/signup', { name: 'A', email: 'a@b.com', password: 'pw' })
+    expect(res.status).toBe(400)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('passes through a register failure (duplicate email)', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeRes(400, { detail: 'Email already registered' }))
+    const res = await post('/api/auth/signup', body)
+    expect(res.status).toBe(400)
+    expect((await res.json()).message).toMatch(/already registered/)
+  })
+})
+
+describe('POST /api/auth/refresh', () => {
+  it('returns a fresh accessToken', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeRes(200, { access_token: 'NEW' }))
+    const res = await post('/api/auth/refresh', { refreshToken: 'RT' })
+    expect(res.status).toBe(200)
+    expect((await res.json()).accessToken).toBe('NEW')
+  })
+  it('401 when no token is provided (no fetch)', async () => {
+    const res = await post('/api/auth/refresh', {})
+    expect(res.status).toBe(401)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+  it('401 when the backend rejects the refresh token', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(fakeRes(401, {}))
+    const res = await post('/api/auth/refresh', { refreshToken: 'bad' })
+    expect(res.status).toBe(401)
+  })
+})
+
+describe('POST /api/auth/logout', () => {
+  it('returns success without hitting the backend', async () => {
+    const res = await post('/api/auth/logout', {})
+    expect(res.status).toBe(200)
+    expect((await res.json()).success).toBe(true)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+})
