@@ -26,6 +26,7 @@ class CustomLLM(BaseModel):
     base_url: str
     api_key: str
     model: str
+    label: str | None = None
 
 
 def _ollama_models() -> list[str]:
@@ -49,14 +50,11 @@ def get_llm_settings(current_user: User = Depends(get_current_user)) -> dict:
     """Current selection + the available providers and their models."""
     current = llm_state.get()
     providers = []
+    # Built-in providers.
     for pid, prov in llm_state.PROVIDERS.items():
         if pid == "ollama":
             models = _ollama_models()
             available = bool(models)
-        elif pid == "custom":
-            cust = llm_state.get().get("custom") or {}
-            models = [cust["model"]] if cust.get("model") else []
-            available = llm_state.provider_has_key("custom")
         else:
             models = llm_state.CURATED_MODELS.get(pid, [])
             available = llm_state.provider_has_key(pid)
@@ -67,6 +65,18 @@ def get_llm_settings(current_user: User = Depends(get_current_user)) -> dict:
             "available": available,
             "hasKey": llm_state.provider_has_key(pid),
         })
+    # Saved custom providers (each addressed as custom:<id>).
+    for c in llm_state.list_custom():
+        pid = f"custom:{c['id']}"
+        has = llm_state.provider_has_key(pid)
+        providers.append({
+            "id": pid,
+            "label": c["label"],
+            "models": [c["model"]] if c["model"] else [],
+            "available": has,
+            "hasKey": has,
+            "custom": True,
+        })
     return {"provider": current["provider"], "model": current["model"], "providers": providers}
 
 
@@ -76,7 +86,7 @@ def set_llm_settings(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Switch the active provider+model. Effective immediately, no restart."""
-    if selection.provider not in llm_state.PROVIDERS:
+    if not llm_state.is_valid_provider(selection.provider):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=f"Unknown provider: {selection.provider}")
     if selection.provider != "ollama" and not llm_state.provider_has_key(selection.provider):
         raise HTTPException(
@@ -96,14 +106,32 @@ def set_custom_llm(
     cfg: CustomLLM,
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    """Save a user-supplied OpenAI-compatible endpoint (base URL + API key +
-    model) and switch to it. Works for any provider that speaks the OpenAI
-    /chat/completions API. Effective immediately, no restart."""
+    """Save a new user-supplied OpenAI-compatible provider (base URL + API key +
+    model) and switch to it. Any number can be saved; each is addressed as
+    custom:<id>. Effective immediately, no restart."""
     if not (cfg.base_url.strip() and cfg.api_key.strip() and cfg.model.strip()):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             detail="base_url, api_key and model are all required",
         )
-    new = llm_state.set_custom(cfg.base_url.strip(), cfg.api_key.strip(), cfg.model.strip())
-    logger.info("Custom LLM configured", model=new["model"])
+    new = llm_state.add_custom(
+        cfg.base_url.strip(), cfg.api_key.strip(), cfg.model.strip(),
+        (cfg.label or "").strip() or None,
+    )
+    logger.info("Custom LLM added", provider=new["provider"], model=new["model"])
     return new
+
+
+@router.delete("/llm/custom/{cid}")
+def delete_custom_llm(
+    cid: str,
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Delete a saved custom provider. If it was active, the selection falls
+    back to the default provider."""
+    try:
+        result = llm_state.delete_custom(cid)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e))
+    logger.info("Custom LLM deleted", cid=cid, provider=result["provider"])
+    return result

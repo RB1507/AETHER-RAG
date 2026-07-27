@@ -14,6 +14,7 @@ import {
   Sliders,
   Sparkles,
   Loader2,
+  Trash2,
   Moon,
   Sun,
   Laptop,
@@ -108,17 +109,40 @@ export default function SettingsPage() {
   const [isSavingKey, setIsSavingKey] = React.useState(false)
   const [keyConfigured, setKeyConfigured] = React.useState<boolean | null>(null)
 
-  // Custom OpenAI-compatible provider (any API key)
+  // Custom OpenAI-compatible providers (bring your own key). Any number can be
+  // saved; each is addressed as custom:<id>.
   const [customPreset, setCustomPreset] = React.useState('gemini')
   const [customBaseUrl, setCustomBaseUrl] = React.useState(LLM_PRESETS.gemini.baseUrl)
   const [customApiKey, setCustomApiKey] = React.useState('')
   const [customModel, setCustomModel] = React.useState('')
   const [isSavingCustom, setIsSavingCustom] = React.useState(false)
+  const [savedProviders, setSavedProviders] = React.useState<
+    { id: string; label: string; model: string }[]
+  >([])
 
   const applyPreset = (id: string) => {
     setCustomPreset(id)
     setCustomBaseUrl(LLM_PRESETS[id].baseUrl)
   }
+
+  const refreshSavedProviders = React.useCallback(async () => {
+    try {
+      const data = await apiClient.get<{ providers: { id: string; label: string; models: string[] }[] }>(
+        '/settings/llm'
+      )
+      setSavedProviders(
+        (data.providers || [])
+          .filter((p) => p.id.startsWith('custom:'))
+          .map((p) => ({ id: p.id, label: p.label, model: p.models[0] || '' }))
+      )
+    } catch {
+      /* backend down — leave the list empty */
+    }
+  }, [])
+
+  React.useEffect(() => {
+    refreshSavedProviders()
+  }, [refreshSavedProviders])
 
   const handleSaveCustom = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -128,17 +152,31 @@ export default function SettingsPage() {
     }
     setIsSavingCustom(true)
     try {
+      const label = customPreset === 'custom' ? 'Custom' : LLM_PRESETS[customPreset].label
       await apiClient.post('/settings/llm/custom', {
         base_url: customBaseUrl,
         api_key: customApiKey,
         model: customModel,
+        label,
       })
       setCustomApiKey('')
-      toast.success(`Custom model set: ${customModel}. Pick it from the model menu in chat.`)
+      setCustomModel('')
+      await refreshSavedProviders()
+      toast.success(`Added ${label} (${customModel}). Pick it from the model menu in chat.`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not save custom model')
+      toast.error(err instanceof Error ? err.message : 'Could not save provider')
     } finally {
       setIsSavingCustom(false)
+    }
+  }
+
+  const handleDeleteProvider = async (id: string, label: string) => {
+    try {
+      await apiClient.delete(`/settings/llm/custom/${id.replace('custom:', '')}`)
+      await refreshSavedProviders()
+      toast.success(`Removed ${label}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not remove provider')
     }
   }
 
@@ -499,11 +537,39 @@ export default function SettingsPage() {
                           Saving...
                         </span>
                       ) : (
-                        'Save & Use'
+                        'Add provider'
                       )}
                     </Button>
                   </div>
                 </form>
+
+                {savedProviders.length > 0 && (
+                  <div className="mt-6 space-y-2 border-t border-border/50 pt-6">
+                    <h4 className="text-[10px] font-bold uppercase text-text-muted tracking-wider mb-2">
+                      Saved providers
+                    </h4>
+                    {savedProviders.map((p) => (
+                      <div
+                        key={p.id}
+                        className="flex items-center justify-between p-3 rounded-xl border border-border/55 bg-surface-primary/30"
+                      >
+                        <div className="min-w-0 leading-tight text-left">
+                          <p className="text-xs font-semibold text-text-primary truncate">{p.label}</p>
+                          <p className="text-[10px] text-text-muted font-mono truncate">{p.model}</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteProvider(p.id, p.label)}
+                          className="hover:bg-danger/10 hover:text-danger rounded-lg h-8 w-8 text-text-muted shrink-0 ml-4"
+                          title="Remove provider"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>
