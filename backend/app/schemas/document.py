@@ -52,6 +52,8 @@ class DocumentStatusResponse(BaseModel):
     filename: str
     status: str
     chunk_count: int
+    # Human-readable reason when status == "failed"; None otherwise.
+    error: str | None = None
 
 
 

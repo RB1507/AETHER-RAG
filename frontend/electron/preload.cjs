@@ -10,4 +10,8 @@ contextBridge.exposeInMainWorld("aetherRAG", {
   // exposed, and they are write-only/status-only — no arbitrary FS access.
   setApiKey: (key) => ipcRenderer.invoke("aetherrag:set-api-key", key),
   getApiKeyStatus: () => ipcRenderer.invoke("aetherrag:get-api-key-status"),
+  // Open the writable data folder (DB + vector store + uploads) in the OS file
+  // manager so the user can copy it out as a backup. Read-only reveal — no FS
+  // access is handed to the renderer.
+  openDataFolder: () => ipcRenderer.invoke("aetherrag:open-data-folder"),
 });

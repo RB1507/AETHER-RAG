@@ -1,4 +1,5 @@
 import os
+import errno
 import glob
 import shutil
 import uuid
@@ -19,6 +20,21 @@ logger = structlog.get_logger()
 
 # In-memory store for tracking document status before DB configuration in Phase 13
 DOCUMENT_STATUSES = {}
+
+
+def _fail(document_id: str, message: str) -> None:
+    """Mark a document failed and record a user-facing reason on its status."""
+    rec = DOCUMENT_STATUSES.get(document_id)
+    if rec is not None:
+        rec["status"] = "failed"
+        rec["error"] = message
+
+
+def _reason_for(exc: Exception) -> str:
+    """Turn a raw ingestion exception into a message a non-developer can act on."""
+    if isinstance(exc, OSError) and exc.errno == errno.ENOSPC:
+        return "Ran out of disk space while indexing this file. Free up space and try again."
+    return "Something went wrong while indexing this file. Try a different file or re-upload it."
 
 def process_document_task(
     document_id: str,
@@ -43,7 +59,7 @@ def process_document_task(
         text, success = extract_text_from_file(file_path)
         if not success:
             logger.error("Failed to extract text from document in background task", document_id=document_id)
-            DOCUMENT_STATUSES[document_id]["status"] = "failed"
+            _fail(document_id, "Could not read this file — it may be corrupted, password-protected, or empty.")
             return
 
         # 2. Chunking (record the on-disk path so the raw file can be deleted later,
@@ -53,9 +69,11 @@ def process_document_task(
             file_path=file_path, owner=owner, workspace_id=workspace_id,
         )
         if not chunks:
+            # No chunks = nothing to ground answers on (e.g. an image with no
+            # readable text, or a near-empty doc). Surface it as a failure with a
+            # reason rather than a silent "completed" that answers nothing.
             logger.warning("No chunks generated from document", document_id=document_id)
-            DOCUMENT_STATUSES[document_id]["status"] = "completed"
-            DOCUMENT_STATUSES[document_id]["chunk_count"] = 0
+            _fail(document_id, "No readable text found — this looks like an empty document or an image with no text.")
             return
 
         # Assign globally-unique, continuing chunk ids. chunk_text numbers chunks
@@ -81,7 +99,7 @@ def process_document_task(
 
     except Exception as e:
         logger.error("Unexpected error in background document processing", document_id=document_id, error=str(e))
-        DOCUMENT_STATUSES[document_id]["status"] = "failed"
+        _fail(document_id, _reason_for(e))
 
 async def upload_document(
     file: UploadFile,

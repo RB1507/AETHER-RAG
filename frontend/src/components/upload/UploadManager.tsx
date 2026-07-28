@@ -17,6 +17,8 @@ interface BackendStatus {
   filename: string
   status: 'processing' | 'completed' | 'failed'
   chunk_count: number
+  /** Human-readable reason, present when status === 'failed'. */
+  error?: string
 }
 
 const POLL_INTERVAL_MS = 1500
@@ -41,12 +43,12 @@ export function UploadManager() {
   const startedRef = React.useRef<Set<string>>(new Set())
 
   const finish = React.useCallback(
-    (id: string, fileName: string, ok: boolean, workspaceId: string | null) => {
+    (id: string, fileName: string, ok: boolean, workspaceId: string | null, errorMsg?: string) => {
       queryClient.invalidateQueries({ queryKey: ['documents', workspaceId] })
       queryClient.invalidateQueries({ queryKey: ['documents'] })
       useWorkspaceStore.getState().fetchWorkspaces()
       if (ok) toast.success(`Indexed ${fileName} successfully`)
-      else toast.error(`Failed to index ${fileName}`)
+      else toast.error(errorMsg ? `${fileName}: ${errorMsg}` : `Failed to index ${fileName}`)
       setTimeout(() => {
         remove(id)
         startedRef.current.delete(id)
@@ -109,8 +111,9 @@ export function UploadManager() {
             return
           }
           if (st.status === 'failed') {
-            patch(id, { status: 'failed', error: 'Processing failed' })
-            finish(id, fileName, false, workspaceId)
+            const reason = st.error || 'Processing failed'
+            patch(id, { status: 'failed', error: reason })
+            finish(id, fileName, false, workspaceId, reason)
             return
           }
           // Still indexing — the backend reports no %, so leave the bar full

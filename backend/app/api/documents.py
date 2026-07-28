@@ -55,7 +55,8 @@ async def get_document_status(
         document_id=status_info["document_id"],
         filename=status_info["filename"],
         status=status_info["status"],
-        chunk_count=status_info["chunk_count"]
+        chunk_count=status_info["chunk_count"],
+        error=status_info.get("error"),
     )
 
 @router.delete("/{document_id}")

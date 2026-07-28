@@ -7,6 +7,7 @@ declare global {
     isDesktop: boolean
     setApiKey: (key: string) => Promise<{ ok: boolean; error?: string }>
     getApiKeyStatus: () => Promise<{ configured: boolean }>
+    openDataFolder: () => Promise<{ ok: boolean; path?: string; error?: string }>
   }
 
   interface Window {

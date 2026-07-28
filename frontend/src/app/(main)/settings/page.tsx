@@ -19,6 +19,7 @@ import {
   Sun,
   Laptop,
   ShieldQuestion,
+  FolderOpen,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
@@ -210,6 +211,11 @@ export default function SettingsPage() {
 
   // Model parameters (Simulated)
   const [temperature, setTemperature] = React.useState(0.7)
+
+  const handleOpenDataFolder = async () => {
+    const res = await window.aetherRAG?.openDataFolder()
+    if (res && !res.ok) toast.error(res.error || 'Could not open the data folder.')
+  }
 
   // Save profile updates
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -682,6 +688,34 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Data & backup — reveal the local data folder to copy it out */}
+            {isDesktop && (
+              <Card className="border border-border/60 bg-surface-primary/80 backdrop-blur-md rounded-2xl shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-brand-primary" />
+                    Data & Backup
+                  </CardTitle>
+                  <CardDescription className="text-[10px]">
+                    Everything lives on this device — your database, indexed
+                    documents, and chat history are all in one folder. To back up
+                    or move to another machine, open the folder and copy it
+                    somewhere safe. Restore by copying it back before launching.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    type="button"
+                    onClick={handleOpenDataFolder}
+                    className="bg-brand-primary text-white hover:bg-brand-primary/95 text-xs h-9 rounded-lg px-4"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
+                    Open data folder
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </motion.div>
         </TabsContent>
       </Tabs>

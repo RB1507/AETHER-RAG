@@ -369,6 +369,20 @@ ipcMain.handle("aetherrag:get-api-key-status", async () => {
   return { configured: Boolean((settings.OPENROUTER_API_KEY || "").trim()) };
 });
 
+// Reveal the writable data folder so the user can copy it out as a backup. This
+// is the same userData/data dir the backend + frontend persist into, so copying
+// it captures the DB, vector store, uploads, and chat metadata in one folder.
+ipcMain.handle("aetherrag:open-data-folder", async () => {
+  const dataDir = path.join(app.getPath("userData"), "data");
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    const err = await shell.openPath(dataDir); // "" on success
+    return err ? { ok: false, error: err } : { ok: true, path: dataDir };
+  } catch (e) {
+    return { ok: false, error: String(e && e.message ? e.message : e) };
+  }
+});
+
 // --- Window ------------------------------------------------------------
 
 let mainWindow = null;

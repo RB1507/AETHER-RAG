@@ -56,6 +56,10 @@ export function UploadQueueItem({ item }: { item: UploadItem }) {
         <span>•</span>
         <span>Uploaded {formatDate(item.uploadedAt, 'short')}</span>
       </p>
+
+      {item.status === 'failed' && item.error && (
+        <p className="text-[9px] text-destructive leading-snug">{item.error}</p>
+      )}
     </div>
   )
 }
