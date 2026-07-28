@@ -66,3 +66,27 @@ nsis:
   shortcutName: AETHER RAG
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
+
+# macOS. MUST be built on a Mac (PyInstaller can't cross-compile the backend,
+# and electron-builder can't produce a .dmg off macOS). electron-builder
+# converts build/icon.png -> .icns automatically.
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.productivity
+  icon: build/icon.png
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # Unsigned + un-notarized by default (no paid Apple Developer cert). Users
+  # right-click the app -> Open to bypass Gatekeeper the first time. To sign +
+  # notarize later, set CSC_LINK/CSC_KEY_PASSWORD + APPLE_ID/APPLE_APP_SPECIFIC_PASSWORD.
+
+# Linux. MUST be built on Linux (same PyInstaller cross-compile constraint).
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Office
+  icon: build/icon.png
+  maintainer: AETHER RAG
+  artifactName: ${productName}-${version}.${ext}

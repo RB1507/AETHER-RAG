@@ -18,7 +18,12 @@
 /out/
 
 # production
-/build
+# NOTE: /build is also electron-builder's buildResources dir — keep the icon
+# sources tracked so a fresh clone / CI runner can package without regenerating.
+/build/*
+!/build/icon.ico
+!/build/icon.png
+!/build/make_icon.py
 
 # misc
 .DS_Store

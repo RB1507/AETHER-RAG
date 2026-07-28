@@ -78,6 +78,28 @@ Launch the **Electron desktop app** in dev instead: `scripts\StartApp.bat`
 (or `npm run app` in `frontend/`). Stop the dev stack with
 `scripts\StopRAG.bat`.
 
+### Building the desktop installer
+
+The installer bundles a **PyInstaller-frozen backend**, which is
+OS-specific and **cannot be cross-compiled** — each OS's installer must be
+built on that OS (or a matching CI runner). On each platform: freeze the
+backend, then run the matching `dist` script.
+
+```bash
+# 1. Freeze the backend (from backend/packaging/, using the packaging venv)
+#    Windows:  ..\venv_pkg\Scripts\pyinstaller.exe aetherrag-backend.spec --noconfirm --clean
+#    mac/linux: ../venv_pkg/bin/pyinstaller   aetherrag-backend.spec --noconfirm --clean
+
+# 2. Build the installer (from frontend/)
+npm run dist          # Windows  -> dist_installer/AETHER RAG-Setup-<ver>.exe (NSIS)
+npm run dist:mac      # macOS    -> .dmg + .zip   (build ON a Mac)
+npm run dist:linux    # Linux    -> .AppImage + .deb (build ON Linux)
+```
+
+Icons for all three platforms are generated from one source by
+`python frontend/build/make_icon.py` (writes `icon.ico` + `icon.png`;
+electron-builder derives the mac `.icns`).
+
 ---
 
 ## Configuration

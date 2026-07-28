@@ -31,15 +31,20 @@ const isDev = !app.isPackaged;
 const FRONTEND_DIR = path.join(__dirname, "..");
 const ROOT_DIR = path.join(FRONTEND_DIR, "..");
 const BACKEND_DIR = path.join(ROOT_DIR, "backend");
-const VENV_PY = path.join(BACKEND_DIR, "venv", "Scripts", "python.exe");
+const IS_WIN = process.platform === "win32";
+// venv layout differs by OS: Windows uses Scripts/python.exe, POSIX uses bin/python.
+const VENV_PY = IS_WIN
+  ? path.join(BACKEND_DIR, "venv", "Scripts", "python.exe")
+  : path.join(BACKEND_DIR, "venv", "bin", "python");
 // App icon (dev window). In the packaged app the icon is embedded in the exe by
 // electron-builder, so this guarded path simply no-ops there.
-const ICON_PATH = path.join(FRONTEND_DIR, "build", "icon.ico");
+const ICON_PATH = path.join(FRONTEND_DIR, "build", IS_WIN ? "icon.ico" : "icon.png");
 const iconOption = () => (fs.existsSync(ICON_PATH) ? { icon: ICON_PATH } : {});
 
 // Packaged resources (extraResources land in process.resourcesPath).
 const RES_DIR = process.resourcesPath || "";
-const PROD_BACKEND_EXE = path.join(RES_DIR, "backend", "aetherrag-backend.exe");
+// PyInstaller appends .exe only on Windows; the frozen binary is bare on mac/linux.
+const PROD_BACKEND_EXE = path.join(RES_DIR, "backend", IS_WIN ? "aetherrag-backend.exe" : "aetherrag-backend");
 const PROD_FRONTEND_DIR = path.join(RES_DIR, "frontend");
 const PROD_FRONTEND_SERVER = path.join(PROD_FRONTEND_DIR, "server.js");
 
