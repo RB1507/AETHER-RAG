@@ -18,16 +18,25 @@ os.environ["UPLOAD_DIR"] = os.path.join(_TMP, "uploads")
 os.environ["DATABASE_URL"] = "sqlite:///" + os.path.join(_TMP, "smoke.db").replace(os.sep, "/")
 
 from types import SimpleNamespace  # noqa: E402
+import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402
 from app.api.deps import get_current_user  # noqa: E402
 
-# Skip real auth — this test exercises the RAG pipeline, not login.
-app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(email="smoke@test.local")
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    """Skip real auth — this test exercises the RAG pipeline, not login. The
+    override is scoped to this fixture and removed after, so it can't leak into
+    the auth/security tests that share the same app instance."""
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(email="smoke@example.com")
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
 
 
-def test_upload_then_query_returns_grounded_citation():
+def test_upload_then_query_returns_grounded_citation(client):
     # 1. Upload a document with a distinctive fact.
     content = b"The capital of France is Paris. Paris sits on the river Seine."
     r = client.post(
