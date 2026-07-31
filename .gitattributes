@@ -1,0 +1,15 @@
+# Normalize line endings across platforms (repo is Windows/mac/Linux).
+* text=auto
+
+# Windows-only scripts must stay CRLF to run correctly.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# POSIX shell scripts must stay LF.
+*.sh   text eol=lf
+
+# Binary assets — never touch line endings.
+*.png  binary
+*.ico  binary
+*.pdf  binary
